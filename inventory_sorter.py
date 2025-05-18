@@ -21,6 +21,7 @@ except Exception as e:
 # --- CONFIGURATION LOADING ---
 CONFIG_FILE = 'config.ini'
 config = configparser.ConfigParser() # Global config object
+interrupt_processing_flag = False
 
 DEFAULT_CONFIG = { # All keys here should be lowercase
     'general': {'gamewindowtitle': 'Bellwright', 'tesseractcmdpath': r'C:\Program Files\Tesseract-OCR\tesseract.exe'},
@@ -30,6 +31,7 @@ DEFAULT_CONFIG = { # All keys here should be lowercase
         'setgridorigin': 'num_3', 'calibrateslotdimensions': 'num_5', 'calibrateslotxgap': 'num_6',
         'calibrateslotygap': 'num_plus', 'calibratetiercolorpoint': 'num_7', 'calibrateocrregion': 'num_8',
         'savecalibratedvalues': 'num_9', 'exitscript': 'num_0',
+        'interruptprocess': 'delete',
     },
     'gridstructure': {
         'gridoffsetx': '310', 'gridoffsety': '170', 'numcols': '6', 'maxnumrows': '10',
@@ -45,6 +47,7 @@ DEFAULT_CONFIG = { # All keys here should be lowercase
 
 # --- Global config variables ---
 GAME_WINDOW_TITLE, TESSERACT_CMD_PATH = '', ''
+INTERRUPT_PROCESS_HOTKEY = ''
 CALCULATE_HOTKEY, EXECUTE_SORT_HOTKEY, FULL_UI_CALIBRATION_HOTKEY, SAVE_CONFIG_HOTKEY, EXIT_SCRIPT_HOTKEY = '', '', '', '', ''
 # Individual calibration hotkeys
 SET_GRID_ORIGIN_IND_HOTKEY, CALIBRATE_SLOT_DIM_IND_HOTKEY, CALIBRATE_SLOT_X_GAP_IND_HOTKEY = '', '', ''
@@ -150,7 +153,9 @@ def initialize_tesseract(): # Unchanged from previous working version
         pytesseract_available = True
     except Exception as e: log_message(f"WARN: Init Tesseract (Path:'{TESSERACT_CMD_PATH}'): {e}"); pytesseract_available=False
 
-is_processing = False; last_calculated_plan = None; script_running = True
+is_processing = False; 
+last_calculated_plan = None; 
+script_running = True
 DEBUG_IMAGE_FOLDER = "execution_debug_images"; full_ui_calibration_state = {"active": False, "step": 0, "points": []}
 individual_calibration_tool_state = {} # For individual calibration tools
 
@@ -179,6 +184,11 @@ def set_grid_origin_individually():
     log_message(f"SUCCESS: Indiv. Grid Origin: X={GRID_OFFSET_X}, Y={GRID_OFFSET_Y}. Press {SAVE_CONFIG_HOTKEY} to save.")
     del individual_calibration_tool_state[tool_name]; is_processing = False
 
+def request_interrupt_processing():
+    global interrupt_processing_flag, is_processing
+    if is_processing: # Only if something is actually running
+        log_message("!!! PROCESSING INTERRUPTED BY USER !!!")
+        interrupt_processing_flag = True
 
 def start_or_advance_full_ui_calibration():
     global full_ui_calibration_state, is_processing, GRID_OFFSET_X, GRID_OFFSET_Y, \
@@ -841,6 +851,7 @@ if __name__ == "__main__":
         ('calibratetiercolorpoint', calibrate_tier_color_point_individually, "Indiv: Set Tier Color Sample Point (2 clicks)"),
         ('calibrateocrregion', calibrate_ocr_region_individually, "Indiv: Set OCR Stack Count Region (3 clicks)"),
         ('savecalibratedvalues', save_calibrated_values_to_config, "Save ALL Current Calibrated Values to config.ini"),
+        ('interruptprocess', request_interrupt_processing, "INTERRUPT Current Action (e.g., sorting, long calibration)"),
         ('exitscript', request_exit, "Unhook Keys & Prepare for Exit")
     ]
     register_hotkeys(hotkey_actions_list)
